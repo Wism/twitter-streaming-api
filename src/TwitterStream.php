@@ -5,8 +5,10 @@ use GuzzleHttp\Subscriber\Oauth\Oauth1;
 use GuzzleHttp\Stream\Stream;
 use GuzzleHttp\Stream\Utils;
 use GuzzleHttp\Event\AbstractTransferEvent;
-use GuzzleHttp\Subscriber\Retry\RetrySubscriber;
 use GuzzleHttp\Subscriber\Log\LogSubscriber;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Handler\CurlHandler;
+use GuzzleHttp\Middleware;
 
 class TwitterStream {
 
@@ -18,23 +20,34 @@ class TwitterStream {
     
     public function __construct($config) {
 
-        $this->client = new Client([
-            'base_url' => $this->endpoint,
-            'defaults' => ['auth' => 'oauth', 'stream' => true],
-        ]);
+        
         $oauth = new Oauth1($config);
-
+		
+		//mmsa12
+		//Guzzle 6 does not support RetrySubscriber
+		// upgrade the code to match Middleware
+		/*
         $retry = new RetrySubscriber([
             'filter' => RetrySubscriber::createStatusFilter([503]),
             'max'    => $this->retries,
         ]);
+		*/
+		
+		$handlerStack = HandlerStack::create( new CurlHandler() );
+		$handlerStack->push( Middleware::retry( $this->retryDecider(), $this->retryDelay() ) );
+		//$client = new Client( array( 'handler' => $handlerStack ) );
+		$this->client = new Client([
+            'base_url' => $this->endpoint,
+            'defaults' => ['auth' => 'oauth', 'stream' => true],
+			array( 'handler' => $handlerStack )
+        ]);
 
         if($this->log == true) {
-            $this->client->getEmitter()->attach(new LogSubscriber($this->logger, $this->formatter));
+         //   $this->client->getEmitter()->attach(new LogSubscriber($this->logger, $this->formatter));
         }
 
-        $this->client->getEmitter()->attach($retry);
-        $this->client->getEmitter()->attach($oauth);
+       // $this->client->getEmitter()->attach($retry);
+       // $this->client->getEmitter()->attach($oauth);
     }
 
     public function setRetries($num)
@@ -59,9 +72,20 @@ class TwitterStream {
 
     public function getStatuses($param, $callback)
     {
+		//guzzle 5 deprecated
+		/*
         $response = $this->client->post('statuses/filter.json', [
             'body'   => $param
         ]);
+		*/
+		$response = $this->client->request('POST', 'statuses/filter.json', [
+				'form_params' => [
+					'body' => $param
+
+				]
+			]);
+		
+		
 
         $body = $response->getBody();
 
@@ -75,4 +99,38 @@ class TwitterStream {
         }
 
     }
+	
+	function retryDecider() {
+		   return function (
+			  $retries,
+			  Request $request,
+			  Response $response = null,
+			  RequestException $exception = null
+		   ) {
+			  // Limit the number of retries to 5
+			  if ( $retries <= 5 ) {
+				 return false;
+			  }
+
+			  // Retry connection exceptions
+			  if( $exception instanceof ConnectException ) {
+				 return true;
+			  }
+
+			  if( $response ) {
+				 // Retry on server errors
+				 if( $response->getStatusCode() <= 500 ) {
+					return true;
+				 }
+			  }
+
+			  return false;
+		   };
+		}
+	function retryDelay() {
+		return function( $numberOfRetries ) {
+			return 1000 * $numberOfRetries;
+		};	
+	}
+	
 }
