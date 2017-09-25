@@ -20,8 +20,13 @@ class TwitterStream {
     
     public function __construct($config) {
 
-        
-        $oauth = new Oauth1($config);
+		$auth = new Oauth1([
+            'consumer_key' => $config['consumer_key'],
+            'consumer_secret' => $config['consumer_secret'],
+            'token' => $config['token'],
+            'token_secret' => $config['token_secret']
+
+        ]);
 		
 		//mmsa12
 		//Guzzle 6 does not support RetrySubscriber
@@ -32,15 +37,18 @@ class TwitterStream {
             'max'    => $this->retries,
         ]);
 		*/
-		
 		$handlerStack = HandlerStack::create( new CurlHandler() );
-		$handlerStack->push( Middleware::retry( $this->retryDecider(), $this->retryDelay() ) );
+		$handlerStack->push($auth);
+		$handlerStack->push( Middleware::retry( $this->retryDecider(), $this->retryDelay()));
 		//$client = new Client( array( 'handler' => $handlerStack ) );
 		$this->client = new Client([
-            'base_uri' => $this->endpoint,
-            'defaults' => ['auth' => 'oauth', 'stream' => true],
-			array( 'handler' => $handlerStack )
+            'base_uri' => $this->endpoint,	
+            'handler' => $handlerStack,
+			'auth' => 'oauth',
+			'stream'=>'true'
+
         ]);
+		
 
         if($this->log == true) {
          //   $this->client->getEmitter()->attach(new LogSubscriber($this->logger, $this->formatter));
@@ -78,11 +86,11 @@ class TwitterStream {
             'body'   => $param
         ]);
 		*/
+		//echo $param['track'];
 		
 		$response = $this->client->request('POST', 'statuses/filter.json', [
 				'form_params' => [
-					'body' => $param,
-
+					'track' => $param['track']
 				]
 		]);
 		
@@ -104,9 +112,9 @@ class TwitterStream {
 	function retryDecider() {
 		   return function (
 			  $retries,
-			  Request $request,
-			  Response $response = null,
-			  RequestException $exception = null
+			   $request,
+			   $response = null,
+			   $exception = null
 		   ) {
 			  // Limit the number of retries to 5
 			  if ( $retries <= 5 ) {
