@@ -48,11 +48,7 @@ class TwitterStream {
 			'stream'=>'true'
 
         ]);
-		
-
-        if($this->log == true) {
-         //   $this->client->getEmitter()->attach(new LogSubscriber($this->logger, $this->formatter));
-        }
+	
 
        // $this->client->getEmitter()->attach($retry);
        // $this->client->getEmitter()->attach($oauth);
@@ -116,8 +112,9 @@ class TwitterStream {
 			   $response = null,
 			   $exception = null
 		   ) {
+			 // print_r($request);
 			  // Limit the number of retries to 5
-			  if ( $retries <= 5 ) {
+			  if ( $retries == 5 ) {
 				 return false;
 			  }
 
@@ -128,7 +125,7 @@ class TwitterStream {
 
 			  if( $response ) {
 				 // Retry on server errors
-				 if( $response->getStatusCode() <= 500 ) {
+				 if( $response->getStatusCode() == 503 ) {
 					return true;
 				 }
 			  }
