@@ -39,3 +39,5 @@ Usage:
 	});
 
 ```
+
+Working in fixing the Guzzle Retry Subscriber issue --
