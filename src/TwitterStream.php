@@ -37,7 +37,7 @@ class TwitterStream {
 		$handlerStack->push( Middleware::retry( $this->retryDecider(), $this->retryDelay() ) );
 		//$client = new Client( array( 'handler' => $handlerStack ) );
 		$this->client = new Client([
-            'base_url' => $this->endpoint,
+            'base_uri' => $this->endpoint,
             'defaults' => ['auth' => 'oauth', 'stream' => true],
 			array( 'handler' => $handlerStack )
         ]);
@@ -78,12 +78,13 @@ class TwitterStream {
             'body'   => $param
         ]);
 		*/
+		
 		$response = $this->client->request('POST', 'statuses/filter.json', [
 				'form_params' => [
-					'body' => $param
+					'body' => $param,
 
 				]
-			]);
+		]);
 		
 		
 
